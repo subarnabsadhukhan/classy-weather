@@ -29,9 +29,12 @@ class App extends React.Component {
     isLoading: false,
     displayLocation: "",
     weather: {},
+    error: "",
   };
 
   fetchWeather = async () => {
+    this.setState({ error: "" });
+    if (this.state.location.length < 3) return;
     try {
       this.setState({ isLoading: true });
       // 1) Getting location (geocoding)
@@ -39,7 +42,6 @@ class App extends React.Component {
         `https://geocoding-api.open-meteo.com/v1/search?name=${this.state.location}`
       );
       const geoData = await geoRes.json();
-      console.log(geoData);
 
       if (!geoData.results) throw new Error("Location not found");
 
@@ -54,7 +56,8 @@ class App extends React.Component {
       const weatherData = await weatherRes.json();
       this.setState({ weather: weatherData.daily });
     } catch (err) {
-      console.err(err);
+      console.error(err);
+      this.setState({ error: err.message });
     } finally {
       this.setState({ isLoading: false });
     }
@@ -63,6 +66,19 @@ class App extends React.Component {
   setLocation = (e) => {
     return this.setState({ location: e.target.value });
   };
+
+  componentDidMount() {
+    this.setState({ location: localStorage.getItem("location") || "" });
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.location !== this.state.location) {
+      this.fetchWeather();
+
+      localStorage.setItem("location", this.state.location);
+    }
+  }
+
   render() {
     return (
       <div className="app">
@@ -72,13 +88,17 @@ class App extends React.Component {
           location={this.state.location}
           onLocationChange={this.setLocation}
         />
-        <button onClick={this.fetchWeather}>Get Weather</button>
+
         {this.state.isLoading && <p className="loader">Loading...</p>}
-        {this.state.weather.weathercode && (
-          <Weather
-            weather={this.state.weather}
-            location={this.state.displayLocation}
-          />
+        {this.state.error ? (
+          <h2>{this.state.error}</h2>
+        ) : (
+          this.state.weather.weathercode && (
+            <Weather
+              weather={this.state.weather}
+              location={this.state.displayLocation}
+            />
+          )
         )}
       </div>
     );
@@ -103,8 +123,6 @@ class Input extends React.Component {
 }
 class Weather extends React.Component {
   render() {
-    console.log(this.props);
-
     const {
       weathercode: codes,
       temperature_2m_max: max,
